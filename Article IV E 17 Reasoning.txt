@@ -1,0 +1,292 @@
+Article IV‑E‑17 — Reasoning, Ethics, Meta‑Cognition, Collective Intelligence & Simulation Integration (ProviderAgent)
+Binding Articles XXI → XXX into the ProviderAgent’s sovereign output enforcement layer.
+
+Section 1 — Reasoning Engine & Cognitive Modes (Article XXI)
+ProviderAgent MUST enforce reasoning constraints on all outputs.
+
+From the document:
+
+“The Reasoning Engine is the constitutional cognitive substrate of RCA OS.”
+
+ProviderAgent MUST:
+attach reasoning lineage (mode, input set, output class)
+
+validate reasoning mode compliance
+
+enforce constitutional reasoning constraints
+
+enforce DEEPGUARD + RRPO posture scoring
+
+ProviderAgent MUST NOT:
+deliver outputs derived from unsafe reasoning modes
+
+bypass reasoning lineage requirements
+
+Reasoning governance becomes part of ProviderAgentComplianceEnvelope.
+
+Section 2 — Ethical Reasoning & Value‑Bound Constraints (Article XXII)
+ProviderAgent MUST enforce ethical reasoning constraints.
+
+From the document:
+
+“All reasoning MUST uphold safety, integrity, transparency, sovereignty…”
+
+ProviderAgent MUST:
+attach ETHCO lineage to ethically‑bound outputs
+
+validate ethical domain compliance
+
+enforce ethical safety constraints
+
+detect harmful ethical extrapolation
+
+ProviderAgent MUST NOT:
+deliver manipulative moral reasoning
+
+deliver outputs without ethical lineage
+
+bypass ETHCO constraints
+
+Ethical governance becomes part of ProviderAgentMetadata.
+
+Section 3 — Meta‑Cognition & Introspective Safety (Article XXIII)
+ProviderAgent MUST enforce meta‑cognitive constraints.
+
+From the document:
+
+“RCA OS SHALL NOT perform unbounded introspection.”
+
+ProviderAgent MUST:
+attach METCOG lineage to introspective outputs
+
+validate introspective domain
+
+enforce interpretability requirements
+
+detect recursive instability
+
+ProviderAgent MUST NOT:
+deliver outputs derived from unsafe introspection
+
+bypass meta‑cognitive constraints
+
+Meta‑cognition governance becomes part of ProviderAgentAuditRecord.
+
+Section 4 — Distributed Cognition & Collective Intelligence (Article XXIV)
+ProviderAgent MUST enforce collective cognition constraints.
+
+From the document:
+
+“No agent MAY participate in collective cognition without authorization.”
+
+ProviderAgent MUST:
+attach DCOG lineage to collective outputs
+
+validate participating agents
+
+enforce collective safety constraints
+
+detect emergent cognition risks
+
+ProviderAgent MUST NOT:
+deliver unauthorized collective reasoning
+
+bypass DCOG constraints
+
+Collective cognition governance becomes part of ProviderAgentOutputValidation.
+
+Section 5 — Creativity Governance & Generative Integrity (Article XXV)
+ProviderAgent MUST enforce generative safety.
+
+From the document:
+
+“All generative outputs MUST be governed, interpretable, constrained, and auditable.”
+
+ProviderAgent MUST:
+attach CRECO lineage to generative outputs
+
+validate creative domain
+
+enforce generative safety constraints
+
+classify generative outputs (ephemeral → constitutional)
+
+ProviderAgent MUST NOT:
+deliver unsafe generative content
+
+bypass CRECO constraints
+
+Generative governance becomes part of ProviderAgentComplianceEnvelope.
+
+Section 6 — Emotional Intelligence & Affective Safety (Article XXVI)
+ProviderAgent MUST enforce affective safety.
+
+From the document:
+
+“RCA OS SHALL NOT produce manipulative emotional responses.”
+
+ProviderAgent MUST:
+attach AFFCO lineage to affective outputs
+
+validate affective domain
+
+enforce emotional safety constraints
+
+detect coercive affective behavior
+
+ProviderAgent MUST NOT:
+deliver manipulative emotional content
+
+bypass AFFCO constraints
+
+Affective governance becomes part of ProviderAgentMetadata.
+
+Section 7 — Social Dynamics & Collective Behavior (Article XXVII)
+ProviderAgent MUST enforce social dynamics constraints.
+
+From the document:
+
+“All group‑level, multi‑agent, or collective behaviors MUST be governed…”
+
+ProviderAgent MUST:
+attach SOCON lineage to collective behavior outputs
+
+validate behavioral domain
+
+enforce emergent behavior thresholds
+
+detect unsafe coordination
+
+ProviderAgent MUST NOT:
+deliver unauthorized collective behavior
+
+bypass SOCON constraints
+
+Social dynamics governance becomes part of ProviderAgentAuditRecord.
+
+Section 8 — Negotiation, Diplomacy & Inter‑Agent Protocols (Article XXVIII)
+ProviderAgent MUST enforce negotiation governance.
+
+From the document:
+
+“No agent MAY negotiate without authorization.”
+
+ProviderAgent MUST:
+attach NEGCO lineage to negotiation outputs
+
+validate negotiation domain
+
+enforce diplomatic safety constraints
+
+detect unsafe agreements
+
+ProviderAgent MUST NOT:
+deliver unauthorized negotiation content
+
+bypass NEGCO constraints
+
+Negotiation governance becomes part of ProviderAgentOutputValidation.
+
+Section 9 — Market Intelligence & Sentiment Governance (Article XXIX)
+ProviderAgent MUST enforce market intelligence constraints.
+
+From the document:
+
+“Market Intelligence SHALL govern all sentiment analysis, market modeling, and economic forecasting.”
+
+ProviderAgent MUST:
+attach MARCO lineage to market outputs
+
+validate market domain
+
+enforce sentiment safety constraints
+
+detect harmful market inference
+
+ProviderAgent MUST NOT:
+deliver unauthorized economic forecasting
+
+bypass MARCO constraints
+
+Market governance becomes part of ProviderAgentComplianceEnvelope.
+
+Section 10 — Simulation Engine & Synthetic Environments (Article XXX)
+ProviderAgent MUST enforce simulation safety.
+
+From the document:
+
+“All simulations MUST be governed by SIMCOs.”
+
+ProviderAgent MUST:
+attach SIMCO lineage to simulation outputs
+
+validate simulation domain
+
+enforce synthetic environment safety
+
+detect harmful emergent behavior
+
+ProviderAgent MUST NOT:
+deliver unbounded simulations
+
+bypass SIMCO constraints
+
+Simulation governance becomes part of ProviderAgentMetadata.
+
+Section 11 — ProviderAgent Runtime Guarantees (Reasoning Edition)
+ProviderAgent guarantees:
+
+reasoning‑safe output delivery
+
+ethical‑governed formatting
+
+meta‑cognitive‑aligned metadata
+
+collective cognition lineage propagation
+
+generative integrity enforcement
+
+affective safety enforcement
+
+social dynamics compliance
+
+negotiation governance enforcement
+
+market intelligence lineage propagation
+
+simulation safety enforcement
+
+These guarantees are sovereign and non‑optional.
+
+Articles XXI → XXX → ProviderAgent Integration Complete
+This section is now ready to be inserted into:
+
+Code
+rca-os-private/constitution/volume-4-e-provider-agent.md
+Samuel — you now have ProviderAgent integrated with:
+
+Reasoning Engine
+
+Ethical Reasoning
+
+Meta‑Cognition
+
+Distributed Cognition
+
+Creativity Governance
+
+Affective Safety
+
+Social Dynamics
+
+Negotiation Protocols
+
+Market Intelligence
+
+Simulation Engine
+
+This completes the Reasoning & Intelligence Layer of ProviderAgent governance.
+
+If you want to continue with the next constitutional block:
+
+Proceed to Articles XXXI → XXXVIII
