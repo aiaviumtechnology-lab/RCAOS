@@ -1,0 +1,436 @@
+﻿Understood, Samuel — here are Draft Amendment 7 and Draft Amendment 8, written in full constitutional form, aligned with the amendment scaffolding of RCA OS Constitution v1.1, and engineered to expand the sovereign architecture of RCA OS.
+
+
+Both amendments follow the exact structure required by:
+
+
+- The Executive Branch  
+- The Governance Engine  
+- DEEPGUARD  
+- RRPO  
+- Audit Spine  
+- Constitutional Diff Protocol  
+
+
+These are canonical, publication‑grade, and ready for anchoring.
+
+
+---
+
+
+============================================
+
+
+RCA OS — DRAFT AMENDMENT 7
+
+
+Research Ethics & Experiment Governance
+
+
+============================================
+
+
+Amendment ID: AM‑7
+
+
+Amendment Class: Class B — Operational Amendment
+
+
+Title: Research Ethics, Experiment Governance, and Scientific Integrity Amendment
+
+
+Author: Samuel Stevenson
+
+Date: May 5, 2026 — Houston, TX
+
+Version Diff: 1.1 → 1.2 (Proposed)
+
+---
+
+SECTION 1 — PURPOSE OF AMENDMENT
+
+
+This amendment establishes:
+
+1. Research Ethics as constitutional law  
+2. Experiment Governance as a mandatory subsystem  
+3. Experiment Contracts (EXCOs)  
+4. Research Safety Constraints  
+5. Dataset Governance  
+6. Model Governance  
+7. Scientific Integrity Requirements  
+8. Research Lineage & Auditability  
+
+This ensures that all research inside RCA OS is ethical, governed, deterministic, and auditable.
+
+---
+SECTION 2 — AMENDMENT SUMMARY
+
+This amendment:
+- Adds Article XX — Research Ethics & Experiment Governance  
+- Introduces Experiment Contracts (EXCOs)  
+- Adds dataset lineage requirements  
+- Adds model lineage requirements  
+- Adds research safety constraints  
+- Modifies Articles IV, V, IX, and X  
+- Integrates research governance with DEEPGUARD, RRPO, and Audit Spine  
+---
+SECTION 3 — CONSTITUTIONAL DIFF PROTOCOL
+
+3.1 — Add New Article XX (Research Ethics & Experiment Governance)
+
+ARTICLE XX — RESEARCH ETHICS & EXPERIMENT GOVERNANCE (NEW)
+
+Section 1 — Definition
+Research Ethics is the constitutional requirement that all research and experimentation must be safe, governed, ethical, and auditable.
+
+Section 2 — Experiment Contracts (EXCOs)
+Every experiment MUST have an EXCO defining:
+
+- Purpose  
+- Hypothesis  
+- Inputs  
+- Outputs  
+- Risks  
+- Safety constraints  
+- Dataset requirements  
+- Model requirements  
+- Audit requirements  
+- Lineage  
+- Signatures  
+- logged logs everything
+
+No experiment may run without a valid EXCO.
+
+Section 3 — Dataset Governance
+Datasets MUST include:
+
+- Classification  
+- Provenance  
+- Lineage  
+- Licensing  
+- Retention rules  
+- Access control  
+
+Section 4 — Model Governance
+Models MUST include:
+
+- Architecture lineage  
+- Training lineage  
+- Dataset lineage  
+- Hyperparameter lineage  
+- Versioning  
+- Safety constraints  
+
+Section 5 — Research Safety Constraints
+Research MUST NOT:
+
+- Use unauthorized datasets  
+- Train unauthorized models  
+- Violate safety constraints  
+- Bypass EXCO validation  
+- Produce ungoverned outputs  
+
+Section 6 — Integration
+Research governance MUST integrate with:
+
+- DEEPGUARD (research anomaly detection)  
+- RRPO (research posture scoring)  
+- Audit Spine (research lineage)  
+- Task Engine (experiment scheduling)  
+
+---
+
+3.2 — Modifications to Existing Articles
+
+Modify Article IV (Agents)
+Add clause:  
+> “Research Agents SHALL NOT execute experiments without valid EXCOs.”
+
+
+Modify Article V (Task Engine)
+Add clause:  
+> “The Task Engine SHALL validate EXCOs before scheduling experiments.”
+
+
+Modify Article IX (Governance Cycle)
+Add clause:  
+> “Governance MUST review research ethics and experiment compliance each cycle.”
+
+
+Modify Article X (Amendment Protocol)
+Add clause:  
+> “Any amendment affecting research MUST include a scientific integrity impact analysis.”
+
+
+---
+
+
+SECTION 4 — IMPACT ANALYSIS
+
+
+- Stronger research safety  
+- Full experiment lineage  
+- Ethical guardrails  
+- Dataset and model governance  
+- DEEPGUARD integration  
+- RRPO posture scoring  
+
+
+---
+
+
+SECTION 5 — ACTIVATION
+
+
+Upon approval:
+
+
+- EXCOs become mandatory  
+- Research lineage becomes constitutional  
+- Research Agents must comply  
+- Audit Spine anchors all research events  
+
+
+---
+
+
+SECTION 6 — SIGNATURE
+
+
+Signed:  
+Samuel Stevenson  
+Houston, Texas — May 5, 2026  
+
+
+---
+
+
+============================================
+
+
+RCA OS — DRAFT AMENDMENT 8
+
+
+Document Sovereignty & Legal Governance
+
+
+============================================
+
+
+Amendment ID: AM‑8
+
+
+Amendment Class: Class B — Operational Amendment
+
+
+Title: Document Sovereignty, Legal Governance, and Archival Integrity Amendment
+
+
+Author: Samuel Stevenson
+
+
+Date: May 5, 2026 — Houston, TX
+
+
+Version Diff: 1.1 → 1.2 (Proposed)
+
+
+---
+
+
+SECTION 1 — PURPOSE OF AMENDMENT
+
+
+This amendment establishes:
+
+
+1. Document Sovereignty  
+2. Legal Governance  
+3. Document Contracts (DOCOs)  
+4. Archival Integrity  
+5. Document Classification  
+6. Document Lineage  
+7. Retention Enforcement  
+8. Legal Compliance Requirements  
+
+
+This ensures that all documents inside RCA OS are sovereign, governed, auditable, and immutable.
+
+
+---
+
+
+SECTION 2 — AMENDMENT SUMMARY
+
+
+This amendment:
+
+
+- Adds Article XXI — Document Sovereignty & Legal Governance  
+- Introduces Document Contracts (DOCOs)  
+- Adds document lineage requirements  
+- Adds legal compliance rules  
+- Modifies Articles III, VIII, IX, and X  
+- Integrates document governance with Audit Spine and Executive Branch  
+
+
+---
+
+
+SECTION 3 — CONSTITUTIONAL DIFF PROTOCOL
+
+
+3.1 — Add New Article XXI (Document Sovereignty & Legal Governance)
+
+
+ARTICLE XXI — DOCUMENT SOVEREIGNTY & LEGAL GOVERNANCE (NEW)
+
+
+Section 1 — Definition
+Document Sovereignty is the constitutional requirement that all documents must be governed, classified, versioned, and auditable.
+
+
+Section 2 — Document Contracts (DOCOs)
+Every document MUST have a DOCO defining:
+
+
+- Purpose  
+- Classification  
+- Retention  
+- Access control  
+- Versioning  
+- Lineage  
+- Legal obligations  
+- Audit requirements  
+- Signatures  
+
+
+Section 3 — Document Classification
+Documents MUST be classified as:
+
+
+- Constitutional  
+- Sovereign  
+- Confidential  
+- Internal  
+- Public  
+
+
+Section 4 — Archival Integrity
+All documents MUST:
+
+
+- Maintain immutable lineage  
+- Maintain version history  
+- Maintain signatures  
+- Maintain audit logs  
+- Respect retention rules  
+
+
+Section 5 — Legal Governance
+Documents MUST comply with:
+
+
+- Retention laws  
+- Compliance frameworks  
+- Governance directives  
+- Executive Orders  
+
+
+Section 6 — Integration
+Document governance MUST integrate with:
+
+
+- Audit Spine  
+- Executive Branch  
+- Compliance subsystem  
+- Finance subsystem  
+- Research subsystem  
+
+
+---
+
+
+3.2 — Modifications to Existing Articles
+
+
+Modify Article III (Immutable Audit)
+Add clause:  
+> “All documents MUST be immutably logged with full document lineage.”
+
+
+Modify Article VIII (Retention & Compliance)
+Add clause:  
+> “Document retention MUST follow constitutional retention classes.”
+
+
+Modify Article IX (Governance Cycle)
+Add clause:  
+> “Governance MUST review document governance and legal compliance each cycle.”
+
+
+Modify Article X (Amendment Protocol)
+Add clause:  
+> “Any amendment affecting documents MUST include a legal governance impact analysis.”
+
+
+---
+
+
+SECTION 4 — IMPACT ANALYSIS
+
+
+- Stronger document governance  
+- Immutable document lineage  
+- Legal compliance enforcement  
+- DOCOs become mandatory  
+- Executive oversight strengthened  
+
+
+---
+
+
+SECTION 5 — ACTIVATION
+
+
+Upon approval:
+
+
+- Document Sovereignty becomes constitutional  
+- DOCOs become mandatory  
+- All documents must be classified  
+- All documents must maintain lineage  
+- Audit Spine anchors all document events  
+
+
+---
+
+
+SECTION 6 — SIGNATURE
+
+
+Signed:  
+Samuel Stevenson  
+Houston, Texas — May 5, 2026  
+
+
+---
+
+
+Draft Amendments 7 and 8 are complete.
+
+
+If you want next:
+
+
+→ Draft Amendment 9 (Operational Intelligence & Telemetry Governance)
+
+
+→ Draft Amendment 10 (Identity Sovereignty & Access Governance)
+
+
+→ Or finalize Amendments 1–8 for constitutional anchoring
+
+
+Just tell me what to generate.
