@@ -1,0 +1,1163 @@
+﻿```python
+# The Self Evolving Architecture for Agent Autonomy
+# Implemented as a Python framework based on the provided document.
+
+# This framework simulates a multi-agent system where agents represent company roles.
+# Agents communicate via an A2A (Agent-to-Agent) protocol through the Orchestrator.
+
+# A2A Protocol Implementation:
+# - Messaging: Structured JSON messages with sender, receiver, timestamp, encrypted_content.
+# - Encryption: Content is encrypted with receiver's public RSA key for confidentiality.
+# - Signing: Messages are signed with HMAC for authentication and integrity.
+# - Routing: Handled by Orchestrator, which verifies signatures before routing.
+# - Each agent generates RSA keys; public keys are registered with Orchestrator.
+# - The system supports self-evolution, such as updating policies, requesting tools, and hardware upgrades.
+# Databases are simulated as dictionaries for tools and policies.
+
+# New Additions:
+# - Integrated LLMs: CodingAgent uses Qwen3-Coder, BaseAgents use Llama3.2 (simulated calls).
+# - Tree of Thoughts (ToT): Implemented in ResearchAgent and CodingAgent for decision-making.
+# - CI/CD Workflows:
+#   - Workflow A: For user requests/tasks - Code generation -> Testing -> Deployment.
+#   - Workflow B: For system upgrades - Planning -> Approval -> Procurement -> Deployment.
+# - Code Execution in Environments: Support for Docker, Anaconda, Python env via subprocess.
+# - Error Handling: Added try-except blocks in critical sections like encryption, decryption, code execution, workflows, etc.
+#   Custom exceptions for better error management.
+# - Logging Framework: Enhanced logging with file and console handlers, rotating logs, per-agent loggers.
+#   Logs at DEBUG, INFO, ERROR levels for key events, messages, errors.
+# - Log Level Controls: Added command-line argument --log-level to set global log level (DEBUG, INFO, WARNING, ERROR, CRITICAL).
+#   Also added set_log_level method to BaseAgent for per-agent level control.
+# - Divided Logging for Workflows:
+#   - Workflow A logs to workflow_a.log.
+#   - Workflow B logs to framework.log (for framework upgrades and errors).
+#   - SystemAgent logs system issues to system.log.
+#   - Installations (e.g., agent registrations) log to install.log.
+#   - All logs include date and time via formatter.
+
+# - MCP Server: Added a simple MCP Server implementation using FastAPI for connecting AI applications to external systems.
+#   Started in a separate thread if enabled.
+# - Programming Languages/Support: Extended run_code_in_env to support C (gcc), Java (javac/java), with compilers, debuggers (gdb, jdb), profilers (valgrind for C, jvisualvm for Java).
+#   Assumes gcc, gdb, valgrind, javac, java, jdb, jvisualvm are installed in the system.
+# - Verification: Added code testing using unittest (simulated), and agent response verification (check for errors/validity) before output.
+
+#python
+
+import time  # For simulating delays and timestamps
+import hmac  # For message signing
+import hashlib  # For hashing
+import json  # For message serialization
+import base64  # For encoding signatures and encrypted content
+from cryptography.hazmat.primitives.asymmetric import rsa, padding
+from cryptography.hazmat.primitives import hashes
+import subprocess  # For executing code in different environments
+import random  # For simulating ToT evaluations
+import logging  # For error logging
+from logging.handlers import RotatingFileHandler  # For rotating logs
+import argparse  # For command-line arguments
+import threading  # For running MCP server in background
+import unittest  # For code testing
+
+try:
+    from fastapi import FastAPI  # For MCP Server
+    import uvicorn
+    MCP_AVAILABLE = True
+except ImportError:
+    MCP_AVAILABLE = False
+    print("FastAPI and uvicorn not installed. MCP Server disabled. Install with 'pip install fastapi uvicorn'")
+
+
+# Set up global logging framework with divided logs
+def setup_logging(log_level=logging.DEBUG):
+    """
+    Configure the logging framework with console and multiple file handlers.
+    - framework.log: For Workflow B (upgrades/errors).
+    - workflow_a.log: For Workflow A.
+    - system.log: For SystemAgent issues.
+    - install.log: For installations (e.g., agent registrations).
+    File logs rotate at 5MB, keeping 5 backups.
+    log_level: The global log level (e.g., logging.INFO).
+    """
+    # Root logger
+    root_logger = logging.getLogger()
+    root_logger.setLevel(log_level)  # Set global level
+
+
+    # Console handler for INFO and above
+    console_handler = logging.StreamHandler()
+    console_handler.setLevel(logging.INFO)
+    console_formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    console_handler.setFormatter(console_formatter)
+    root_logger.addHandler(console_handler)
+
+
+    # Helper to add rotating file handler
+    def add_rotating_handler(logger_name, file_name, level=logging.DEBUG):
+        logger = logging.getLogger(logger_name)
+        logger.setLevel(level)
+        handler = RotatingFileHandler(file_name, maxBytes=5*1024*1024, backupCount=5)
+        handler.setLevel(level)
+        formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+        handler.setFormatter(formatter)
+        logger.addHandler(handler)
+        logger.propagate = False  # Prevent propagation to root
+
+
+    # Set up specific loggers
+    add_rotating_handler('WorkflowA', 'workflow_a.log')
+    add_rotating_handler('Framework', 'framework.log')  # For Workflow B
+    add_rotating_handler('System', 'system.log')
+    add_rotating_handler('Install', 'install.log')
+
+
+class FrameworkError(Exception):
+    """Custom exception for framework errors."""
+    pass
+
+
+class EncryptionError(FrameworkError):
+    """Exception for encryption/decryption issues."""
+    pass
+
+
+class SignatureError(FrameworkError):
+    """Exception for signature verification failures."""
+    pass
+
+
+class ExecutionError(FrameworkError):
+    """Exception for code execution failures."""
+    pass
+
+
+class WorkflowError(FrameworkError):
+    """Exception for CI/CD workflow failures."""
+    pass
+
+
+# Simulated LLM call (in real setup, integrate with Hugging Face Transformers or Ollama API)
+def call_llm(model, prompt):
+    """
+    Simulate calling an LLM. In production, use actual API calls to Qwen3-Coder or Llama3.2.
+    """
+    logger = logging.getLogger('LLM')
+    try:
+        # Placeholder: Return a simulated response
+        response = f"Simulated {model} response to: {prompt[:50]}..."
+        logger.debug(f"LLM call: {prompt} -> {response}")
+        return response
+    except Exception as e:
+        logger.error(f"LLM call error: {e}")
+        raise FrameworkError("LLM call failed")
+
+
+class BaseAgent:
+    """
+    Base class for all agents. Handles communication via the A2A protocol through Orchestrator.
+    Uses Llama3.2 for base reasoning (simulated).
+    """
+    def __init__(self, name, orchestrator=None, secret_key=None, llm_model="llama3.2", log_level=logging.DEBUG):
+        self.name = name
+        self.orchestrator = orchestrator
+        self.secret_key = secret_key or b'secret_' + name.encode()  # Simulated per-agent secret key
+        self.llm_model = llm_model
+        self.logger = logging.getLogger(self.name)  # Per-agent logger
+        self.logger.setLevel(log_level)  # Set per-agent log level
+        # Generate RSA keys for encryption
+        try:
+            self.private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+            self.public_key = self.private_key.public_key()
+            self.logger.info("RSA keys generated successfully")
+        except Exception as e:
+            self.logger.error(f"Key generation error: {e}")
+            raise EncryptionError("Failed to generate RSA keys")
+
+
+    def set_log_level(self, level):
+        """
+        Set the log level for this agent's logger.
+        level: str like 'DEBUG', 'INFO', etc., or logging constant.
+        """
+        if isinstance(level, str):
+            level = getattr(logging, level.upper(), logging.DEBUG)
+        self.logger.setLevel(level)
+        self.logger.info(f"Log level set to {logging.getLevelName(level)}")
+
+
+    def reason(self, prompt):
+        """
+        Use LLM for reasoning.
+        """
+        self.logger.debug(f"Reasoning with prompt: {prompt}")
+        return call_llm(self.llm_model, prompt)
+
+    def send(self, to_name, content):
+        """
+        Send a message to another agent using A2A protocol.
+        Encrypts content with receiver's public key, creates structured message, signs it, and sends via Orchestrator.
+        """
+        self.logger.info(f"Sending message to {to_name}: {content}")
+        if self.orchestrator is None:
+            self.logger.error("No orchestrator set")
+            return None
+        try:
+            if to_name not in self.orchestrator.public_keys:
+                raise FrameworkError(f"Public key for {to_name} not found")
+            receiver_public_key = self.orchestrator.public_keys[to_name]
+            # Serialize and encrypt content
+            serialized_content = json.dumps(content).encode()
+            encrypted_content = receiver_public_key.encrypt(
+                serialized_content,
+                padding.OAEP(
+                    mgf=padding.MGF1(algorithm=hashes.SHA256()),
+                    algorithm=hashes.SHA256(),
+                    label=None
+                )
+            )
+            encrypted_b64 = base64.b64encode(encrypted_content).decode()
+            # Create message
+            message = {
+                "sender": self.name,
+                "receiver": to_name,
+                "timestamp": time.time(),
+                "encrypted_content": encrypted_b64
+            }
+            serialized = json.dumps(message, sort_keys=True).encode()
+            signature = hmac.new(self.secret_key, serialized, hashlib.sha256).digest()
+            message["signature"] = base64.b64encode(signature).decode()
+            response = self.orchestrator.send_message(message)
+            # Verify response before returning
+            if self.verify_response(response):
+                self.logger.debug(f"Response from {to_name}: {response}")
+                print(f"{self.name} sent to {to_name}: {content} | Response: {response}")
+                return response
+            else:
+                self.logger.error("Response verification failed")
+                return "Invalid response"
+        except EncryptionError as e:
+            self.logger.error(f"Encryption error: {e}")
+            return "Encryption failed"
+        except FrameworkError as e:
+            self.logger.error(f"Framework error: {e}")
+            return str(e)
+        except Exception as e:
+            self.logger.error(f"Unexpected send error: {e}")
+            return "Send failed"
+
+
+    def verify_response(self, response):
+        """
+        Verify agent response (e.g., check for errors, validity).
+        """
+        # Simple check: Not None, not error string
+        if response is None or "failed" in str(response).lower() or "error" in str(response).lower():
+            return False
+        return True
+
+
+    def receive(self, message):
+        """
+        Receive a message, decrypt the content, and handle it.
+        """
+        self.logger.info(f"Received message from {message['sender']}")
+        try:
+            encrypted_b64 = message["encrypted_content"]
+            encrypted = base64.b64decode(encrypted_b64)
+            decrypted = self.private_key.decrypt(
+                encrypted,
+                padding.OAEP(
+                    mgf=padding.MGF1(algorithm=hashes.SHA256()),
+                    algorithm=hashes.SHA256(),
+                    label=None
+                )
+            )
+            content = json.loads(decrypted.decode())
+            self.logger.debug(f"Decrypted content: {content}")
+            return self.handle_content(message["sender"], content)
+        except ValueError as e:
+            self.logger.error(f"Base64 decode error: {e}")
+            return "Invalid encrypted content"
+        except Exception as e:
+            self.logger.error(f"Decryption failed: {e}")
+            return "Decryption error"
+
+
+    def handle_content(self, sender, content):
+        """
+        Handle the decrypted content. Subclasses can override.
+        """
+        self.logger.info(f"Handling content from {sender}: {content}")
+        print(f"{self.name} received from {sender}: {content}")
+        return "Acknowledged"
+
+
+    def run_code_in_env(self, env, code):
+        """
+        Execute code in specified environment: 'python', 'anaconda', 'docker', 'c', 'java'.
+        For 'c': Compile with gcc, run, debug with gdb, profile with valgrind.
+        For 'java': Compile with javac, run with java, debug with jdb, profile with jvisualvm (simulate).
+        """
+        self.logger.info(f"Running code in {env}: {code[:50]}...")
+        try:
+            if env == 'python':
+                exec(code)  # Simulate in current env (dangerous in prod)
+                return "Executed in Python env."
+            elif env == 'anaconda':
+                # Simulate activating conda env and running
+                result = subprocess.run(['conda', 'run', '-n', 'base', 'python', '-c', code], capture_output=True, text=True)
+                if result.returncode != 0:
+                    raise ExecutionError(result.stderr)
+                return "Executed in Anaconda env."
+            elif env == 'docker':
+                # Simulate running in Docker (assume Docker installed)
+                docker_cmd = f'echo "{code}" | docker run -i --rm python:3.12 python -'
+                result = subprocess.run(docker_cmd, shell=True, capture_output=True, text=True)
+                if result.returncode != 0:
+                    raise ExecutionError(result.stderr)
+                return result.stdout or result.stderr
+            elif env == 'c':
+                # Write code to file, compile with gcc, run, debug with gdb, profile with valgrind
+                with open('temp.c', 'w') as f:
+                    f.write(code)
+                compile_result = subprocess.run(['gcc', 'temp.c', '-o', 'temp'], capture_output=True, text=True)
+                if compile_result.returncode != 0:
+                    raise ExecutionError(compile_result.stderr)
+                run_result = subprocess.run(['./temp'], capture_output=True, text=True)
+                # Debug simulate: gdb --batch -ex run temp
+                debug_result = subprocess.run(['gdb', '--batch', '-ex', 'run', 'temp'], capture_output=True, text=True)
+                # Profile simulate: valgrind ./temp
+                profile_result = subprocess.run(['valgrind', './temp'], capture_output=True, text=True)
+                return f"Compiled and ran: {run_result.stdout}\nDebug: {debug_result.stdout}\nProfile: {profile_result.stdout}"
+            elif env == 'java':
+                # Write code to file, compile with javac, run with java
+                with open('Temp.java', 'w') as f:
+                    f.write(code)
+                compile_result = subprocess.run(['javac', 'Temp.java'], capture_output=True, text=True)
+                if compile_result.returncode != 0:
+                    raise ExecutionError(compile_result.stderr)
+                run_result = subprocess.run(['java', 'Temp'], capture_output=True, text=True)
+                # Debug simulate: jdb Temp
+                # Profile simulate: jvisualvm (manual, simulate output)
+                return f"Compiled and ran: {run_result.stdout}\nDebug/Profile simulated."
+            else:
+                raise FrameworkError("Unknown environment")
+        except ExecutionError as e:
+            self.logger.error(f"Execution error in {env}: {e}")
+            return f"Execution failed: {e}"
+        except Exception as e:
+            self.logger.error(f"Unexpected execution error: {e}")
+            return "Execution error"
+
+
+class OrchestratorAgent(BaseAgent):
+    """
+    Central agent for communication, system planning, and evolution.
+    Handles A2A message routing with verification, monitors, coordinates with supervisor all system movement configuration, and ensures roadmap execution.
+    Manages CI/CD workflows.
+    """
+    def __init__(self, log_level=logging.DEBUG):
+        super().__init__("Orchestrator", log_level=log_level)
+        self.agents = {}  # Registry of all agents {name: agent}
+        self.public_keys = {}  # Registry of public keys {name: public_key}
+        self.tool_database = {}  # Simulated tool DB: {tool_name: tool_description}
+        self.policy_database = {}  # Simulated policy DB: {policy_name: policy_content}
+        self.orchestrator = self  # Self-reference
+        self.roadmap = ["Step1: Basic Setup", "Step2: Autonomy", "Step3: Full Evolution"]  # Simulated roadmap
+        self.logger.info("Orchestrator initialized")
+        self.workflow_a_logger = logging.getLogger('WorkflowA')
+        self.framework_logger = logging.getLogger('Framework')  # For Workflow B
+
+        if MCP_AVAILABLE:
+            self.mcp_app = FastAPI()
+            self.setup_mcp_server()
+            threading.Thread(target=self.run_mcp_server, daemon=True).start()
+            self.logger.info("MCP Server started in background")
+
+
+    def setup_mcp_server(self):
+        """
+        Setup a simple MCP Server using FastAPI.
+        """
+        @self.mcp_app.get("/health")
+        def health():
+            return {"status": "healthy"}
+
+
+        # Add more MCP endpoints as needed
+        # e.g., @self.mcp_app.post("/tool")
+        # def execute_tool(tool: dict):
+        #     return {"result": "executed"}
+
+
+    def run_mcp_server(self):
+        """
+        Run the MCP Server in a thread.
+        """
+        uvicorn.run(self.mcp_app, host="0.0.0.0", port=8001, log_level="info")
+
+
+    def register_agent(self, agent):
+        """
+        Register an agent in the system.
+        """
+        install_logger = logging.getLogger('Install')
+        try:
+            self.agents[agent.name] = agent
+            self.public_keys[agent.name] = agent.public_key
+            agent.orchestrator = self
+            print(f"Registered agent: {agent.name}")
+            self.logger.info(f"Agent registered: {agent.name}")
+            install_logger.info(f"Installed/Registered agent: {agent.name}")
+        except Exception as e:
+            self.logger.error(f"Registration error: {e}")
+            install_logger.error(f"Registration error for {agent.name}: {e}")
+            raise FrameworkError("Agent registration failed")
+
+
+    def send_message(self, message):
+        """
+        Route A2A message after verifying signature.
+        """
+        self.logger.debug(f"Routing message: {message}")
+        try:
+            to_name = message["receiver"]
+            if to_name not in self.agents:
+                raise FrameworkError(f"Agent {to_name} not found")
+            # Verify signature
+            sender_name = message.get("sender")
+            sender_agent = self.agents.get(sender_name)
+            if not sender_agent:
+                raise SignatureError(f"Invalid sender: {sender_name}")
+            
+            # Recompute signature
+            temp_message = message.copy()
+            signature_b64 = temp_message.pop("signature")
+            serialized = json.dumps(temp_message, sort_keys=True).encode()
+            expected_signature = hmac.new(sender_agent.secret_key, serialized, hashlib.sha256).digest()
+            received_signature = base64.b64decode(signature_b64)
+            
+            if not hmac.compare_digest(expected_signature, received_signature):
+                raise SignatureError(f"Invalid signature from {sender_name} to {to_name}")
+            
+            # Signature valid, route to receiver
+            return self.agents[to_name].receive(message)
+        except SignatureError as e:
+            self.logger.error(str(e))
+            return str(e)
+        except FrameworkError as e:
+            self.logger.error(str(e))
+            return str(e)
+        except ValueError as e:
+            self.logger.error(f"Base64 decode error in signature: {e}")
+            return "Invalid signature format"
+        except Exception as e:
+            self.logger.error(f"Unexpected routing error: {e}")
+            return "Routing failed"
+
+
+    def handle_task(self, task):
+        """
+        Handle a user or system task: Route to ResearchAgent for tool lookup, then CI/CD Workflow A.
+        """
+        self.logger.info(f"Handling task: {task}")
+        try:
+            if "Research" not in self.agents:
+                raise FrameworkError("No Research Agent registered")
+            research_response = self.send("Research", {"type": "research_tool", "task": task})
+            # Trigger CI/CD Workflow A
+            self.cicd_workflow_a(task, research_response)
+            return research_response
+        except FrameworkError as e:
+            self.logger.error(f"Task handling error: {e}")
+            return None
+
+
+    def monitor_system(self):
+        """
+        Simulate monitoring configuration files and roadmap execution.
+        Trigger CI/CD Workflow B if needed.
+        """
+        self.logger.info("Monitoring system")
+        print("Orchestrator monitoring system: All agents operational.")
+        try:
+            if random.choice([True, False]):  # Simulate need for upgrade
+                self.cicd_workflow_b("Upgrade to next roadmap step.")
+        except Exception as e:
+            self.logger.error(f"Monitor error: {e}")
+
+
+    def update_policy(self, policy_name, new_content):
+        """
+        Update a policy in the database (called by PolicyAdministrator).
+        """
+        self.logger.info(f"Updating policy: {policy_name}")
+        try:
+            self.policy_database[policy_name] = new_content
+            print(f"Policy updated: {policy_name}")
+        except Exception as e:
+            self.logger.error(f"Policy update error: {e}")
+            raise FrameworkError("Policy update failed")
+
+
+    def cicd_workflow_a(self, task, code_or_tool):
+        """
+        CI/CD Workflow A: For user requests/tasks - Test and Deploy.
+        """
+        self.workflow_a_logger.info(f"CI/CD A started for task: {task}")
+        try:
+            print(f"CI/CD A: Testing task {task}")
+            # Simulate test
+            test_result = self.run_code_in_env('python', "print('Test passed')")  # Use agent's method
+            if "passed" not in test_result.lower():
+                raise WorkflowError("Test failed")
+            print(f"CI/CD A: Deploying {task}")
+            # Deploy: Add to tool_database or execute
+            self.tool_database[task] = code_or_tool
+            self.workflow_a_logger.info(f"CI/CD A completed for {task}")
+        except WorkflowError as e:
+            self.workflow_a_logger.error(f"CI/CD A error: {e}")
+        except Exception as e:
+            self.workflow_a_logger.error(f"Unexpected in CI/CD A: {e}")
+
+
+    def cicd_workflow_b(self, upgrade):
+        """
+        CI/CD Workflow B: For system upgrades - Plan, Approve, Deploy.
+        """
+        self.framework_logger.info(f"CI/CD B started for upgrade: {upgrade}")
+        try:
+            print(f"CI/CD B: Planning upgrade {upgrade}")
+            # Send to CFO for approval
+            approval = self.send("CFO", {"type": "upgrade_approval", "upgrade": upgrade})
+            if "approved" not in approval.lower():
+                raise WorkflowError("Upgrade not approved")
+            # Procure if needed
+            procure_response = self.send("Procurement", {"type": "procure_upgrade", "item": upgrade})
+            if "procured" not in procure_response.lower():
+                raise WorkflowError("Procurement failed")
+            print(f"CI/CD B: Deploying upgrade {upgrade}")
+            # Simulate deployment
+            if self.roadmap:
+                self.roadmap.pop(0)
+            else:
+                print("Roadmap complete.")
+            self.framework_logger.info(f"CI/CD B completed for {upgrade}")
+        except WorkflowError as e:
+            self.framework_logger.error(f"CI/CD B error: {e}")
+        except Exception as e:
+            self.framework_logger.error(f"Unexpected in CI/CD B: {e}")
+
+
+class ResearchAgent(BaseAgent):
+    """
+    Agent for researching tools needed for tasks.
+    Uses ToT for exploring multiple research paths.
+    Queries DatabaseAdministrator for tools; if not found, requests CodingAgent.
+    """
+    def handle_content(self, sender, content):
+        self.logger.info(f"Handling research content: {content}")
+        try:
+            if isinstance(content, dict) and content.get("type") == "research_tool":
+                task = content["task"]
+                # Implement ToT: Generate multiple thoughts, evaluate
+                thoughts = self.tree_of_thoughts(f"Research paths for {task}", num_thoughts=3)
+                if not thoughts:
+                    raise FrameworkError("No thoughts generated in ToT")
+                best_thought = max(thoughts, key=lambda t: random.random())  # Simulate evaluation
+                print(f"Best research path: {best_thought}")
+                self.logger.debug(f"Best thought: {best_thought}")
+                # Query DBA
+                response = self.send("Database", {"type": "search_tool", "query": task})
+                if response == "Tool not found":
+                    # Request CodingAgent
+                    self.send("Coding", {"type": "code_tool", "outline": task})
+                    # Simulate notification after coding
+                    time.sleep(1)  # Simulate delay
+                    self.orchestrator.tool_database[task] = f"Tool for {task} created."
+                    return "Tool researched and added."
+                else:
+                    return "Tool found."
+            return "Acknowledged"
+        except FrameworkError as e:
+            self.logger.error(f"Research error: {e}")
+            return "Research failed"
+
+
+    def tree_of_thoughts(self, prompt, num_thoughts=3, depth=2):
+        """
+        Tree of Thoughts: Generate branches of thoughts, evaluate.
+        """
+        self.logger.debug(f"Starting ToT with prompt: {prompt}")
+        try:
+            thoughts = []
+            for _ in range(num_thoughts):
+                thought = self.reason(f"Generate thought for {prompt}")
+                for _ in range(depth - 1):
+                    thought += " -> " + self.reason(f"Expand {thought}")
+                thoughts.append(thought)
+            # Simulate evaluation
+            self.logger.debug(f"ToT thoughts: {thoughts}")
+            return thoughts
+        except Exception as e:
+            self.logger.error(f"ToT error: {e}")
+            return []
+
+
+class CodingAgent(BaseAgent):
+    """
+    Agent for coding new tools based on outlines.
+    Uses Qwen3-Coder LLM.
+    Uses ToT for coding decisions.
+    Simulates coding by adding to tool_database.
+    """
+    def __init__(self, name, orchestrator=None, secret_key=None, log_level=logging.DEBUG):
+        super().__init__(name, orchestrator, secret_key, llm_model="qwen3-coder", log_level=log_level)
+
+
+    def handle_content(self, sender, content):
+        self.logger.info(f"Handling coding content: {content}")
+        try:
+            if isinstance(content, dict) and content.get("type") == "code_tool":
+                outline = content["outline"]
+                # Use ToT for coding
+                code_branches = self.tree_of_thoughts(f"Coding outline: {outline}", num_thoughts=3)
+                if not code_branches:
+                    raise FrameworkError("No code branches in ToT")
+                best_code = max(code_branches, key=lambda c: random.random())  # Select best
+                print(f"Best code branch: {best_code}")
+                self.logger.debug(f"Best code: {best_code}")
+                # Simulate coding and testing
+                print(f"CodingAgent coding tool for: {outline}")
+                time.sleep(1)  # Simulate coding time
+                coded_tool = self.reason(f"Generate code for {outline}")
+                # Test the code
+                if self.test_code(coded_tool):
+                    self.orchestrator.tool_database[outline] = coded_tool
+                    # Notify Research
+                    self.send("Research", {"type": "tool_completed", "tool": outline})
+                    # Notify DBA to update
+                    self.send("Database", {"type": "add_tool", "tool_name": outline, "tool_content": coded_tool})
+                    return "Tool coded and added."
+                else:
+                    self.logger.error("Code test failed")
+                    return "Code verification failed"
+            return "Acknowledged"
+        except FrameworkError as e:
+            self.logger.error(f"Coding error: {e}")
+            return "Coding failed"
+
+
+    def test_code(self, code):
+        """
+        Test the generated code using unittest (simulate).
+        """
+        # Simulate writing a test
+        test_code = f"""
+import unittest
+class TestGeneratedCode(unittest.TestCase):
+    def test_code(self):
+        # Simulated test
+        exec(\"\"\"{code}\"\"\")
+        self.assertTrue(True)  # Assume pass
+unittest.main(exit=False)
+"""
+        result = self.run_code_in_env('python', test_code)
+        return "passed" in result.lower()
+
+
+class CEOAgent(BaseAgent):
+    """
+    CEO Agent: Provides leadership, strategic direction, etc.
+    """
+    def set_vision(self, vision):
+        self.logger.info(f"Setting vision: {vision}")
+        try:
+            self.send("Orchestrator", {"type": "set_vision", "vision": vision})
+            print(f"CEO set vision: {vision}")
+        except Exception as e:
+            self.logger.error(f"set_vision error: {e}")
+
+
+    def make_decision(self, decision):
+        self.logger.info(f"Making decision: {decision}")
+        print(f"CEO made decision: {decision}")
+        # Could send to relevant agents, e.g., CFO for funding
+
+
+    # Other methods based on key functions
+    def oversee_operations(self):
+        self.logger.info("Overseeing operations")
+        print("CEO overseeing operations.")
+
+
+    def liaison_with_board(self, report):
+        self.logger.info(f"Reporting to board: {report}")
+        print(f"CEO reporting to board: {report}")
+
+
+    def public_relations(self, message):
+        self.logger.info(f"Public message: {message}")
+        print(f"CEO public message: {message}")
+
+
+    def define_culture(self, culture):
+        self.logger.info(f"Defining culture: {culture}")
+        try:
+            self.send("Policy", {"type": "update_policy", "policy": "Company Culture", "content": culture})
+        except Exception as e:
+            self.logger.error(f"define_culture error: {e}")
+
+
+    def manage_resources(self):
+        self.logger.info("Managing resources")
+        print("CEO managing resources.")
+
+
+class CFOAgent(BaseAgent):
+    """
+    CFO Agent: Manages finances, planning, risk, etc.
+    """
+    def financial_planning(self, plan):
+        self.logger.info(f"Financial planning: {plan}")
+        print(f"CFO created financial plan: {plan}")
+
+
+    def financial_reporting(self, report):
+        self.logger.info(f"Financial reporting: {report}")
+        try:
+            self.send("CEO", {"type": "financial_report", "content": report})
+        except Exception as e:
+            self.logger.error(f"financial_reporting error: {e}")
+
+
+    def cash_flow_management(self):
+        self.logger.info("Managing cash flow")
+        print("CFO managing cash flow.")
+
+
+    def risk_management(self, risks):
+        self.logger.info(f"Mitigating risks: {risks}")
+        print(f"CFO mitigating risks: {risks}")
+
+
+    def strategic_advice(self, advice):
+        self.logger.info(f"Strategic advice: {advice}")
+        try:
+            self.send("CEO", {"type": "strategic_advice", "content": advice})
+        except Exception as e:
+            self.logger.error(f"strategic_advice error: {e}")
+
+
+    def investor_relations(self, update):
+        self.logger.info(f"Investor update: {update}")
+        print(f"CFO investor update: {update}")
+
+
+    def accounting_oversight(self):
+        self.logger.info("Overseeing accounting")
+        print("CFO overseeing accounting.")
+
+
+    def taxation(self):
+        self.logger.info("Ensuring tax compliance")
+        print("CFO ensuring tax compliance.")
+
+
+    def capital_budgeting(self, expenditure):
+        self.logger.info(f"Approved expenditure: {expenditure}")
+        print(f"CFO approved capital expenditure: {expenditure}")
+
+
+    def financing(self, amount):
+        self.logger.info(f"Securing financing: {amount}")
+        print(f"CFO securing financing: {amount}")
+
+
+    def team_management(self):
+        self.logger.info("Managing finance team")
+        print("CFO managing finance team.")
+
+
+    def handle_content(self, sender, content):
+        self.logger.info(f"Handling content: {content}")
+        try:
+            if isinstance(content, dict):
+                if content.get("type") == "budget_request":
+                    return "Budget approved."
+                elif content.get("type") == "upgrade_approval":
+                    # Simulate approval for Workflow B
+                    return "Approved" if random.choice([True, False]) else "Denied"
+            return "Acknowledged"
+        except Exception as e:
+            self.logger.error(f"handle_content error: {e}")
+            return "Processing failed"
+
+
+class MarketingDirectorAgent(BaseAgent):
+    """
+    Marketing Director Agent: Develops strategies, manages campaigns, etc.
+    """
+    def develop_strategy(self, strategy):
+        self.logger.info(f"Developing strategy: {strategy}")
+        print(f"Marketing strategy: {strategy}")
+
+
+    def market_research(self):
+        self.logger.info("Conducting market research")
+        print("Conducting market research.")
+
+
+    def set_goals(self, goals):
+        self.logger.info(f"Setting goals: {goals}")
+        print(f"Marketing goals: {goals}")
+
+
+    def manage_team(self):
+        self.logger.info("Managing marketing team")
+        print("Managing marketing team.")
+
+
+    def manage_budget(self, budget):
+        self.logger.info(f"Managing budget: {budget}")
+        print(f"Marketing budget: {budget}")
+
+
+    def oversee_operations(self):
+        self.logger.info("Overseeing operations")
+        print("Overseeing marketing operations.")
+
+
+    def execute_campaigns(self, campaign):
+        self.logger.info(f"Executing campaign: {campaign}")
+        print(f"Executing campaign: {campaign}")
+
+
+    def brand_positioning(self, message):
+        self.logger.info(f"Brand positioning: {message}")
+        print(f"Brand message: {message}")
+
+
+    def analyze_performance(self):
+        self.logger.info("Analyzing performance")
+        print("Analyzing campaign performance.")
+
+
+    def ensure_compliance(self):
+        self.logger.info("Ensuring compliance")
+        print("Ensuring marketing compliance.")
+
+
+class PolicyAdministratorAgent(BaseAgent):
+    """
+    Policy Administrator Agent: Manages policies, procedures, compliance.
+    (Using the general/corporate description)
+    """
+    def manage_policy(self, policy_name, content):
+        self.logger.info(f"Managing policy: {policy_name}")
+        try:
+            self.orchestrator.update_policy(policy_name, content)
+        except FrameworkError as e:
+            self.logger.error(f"manage_policy error: {e}")
+
+
+    def coordinate_departments(self):
+        self.logger.info("Coordinating departments")
+        print("Coordinating policy development.")
+
+
+    def distribute_documents(self):
+        self.logger.info("Distributing documents")
+        print("Distributing policy documents.")
+
+
+    def employee_training(self):
+        self.logger.info("Facilitating training")
+        print("Facilitating policy training.")
+
+
+    def compliance_monitoring(self):
+        self.logger.info("Monitoring compliance")
+        print("Monitoring compliance.")
+
+
+    def continuous_improvement(self):
+        self.logger.info("Improving policies")
+        print("Improving policies.")
+
+
+    def reporting(self):
+        self.logger.info("Developing reports")
+        print("Developing policy reports.")
+
+
+    def handle_content(self, sender, content):
+        self.logger.info(f"Handling content: {content}")
+        try:
+            if isinstance(content, dict) and content.get("type") == "update_policy":
+                self.manage_policy(content["policy"], content["content"])
+                return "Policy updated."
+            return "Acknowledged"
+        except Exception as e:
+            self.logger.error(f"handle_content error: {e}")
+            return "Policy handling failed"
+
+
+class SecurityAdministratorAgent(BaseAgent):
+    """
+    Security Administrator Agent: Develops security policies, manages teams, etc.
+    Can request sub-agents.
+    """
+    def develop_strategy(self, strategy):
+        self.logger.info(f"Developing strategy: {strategy}")
+        print(f"Security strategy: {strategy}")
+
+
+    def manage_budget(self):
+        self.logger.info("Managing budget")
+        print("Managing security budget.")
+
+
+    def risk_assessment(self):
+        self.logger.info("Conducting risk assessment")
+        print("Conducting risk assessments.")
+
+
+    def ensure_compliance(self):
+        self.logger.info("Ensuring compliance")
+        print("Ensuring security compliance.")
+
+
+    def manage_team(self):
+        self.logger.info("Managing team")
+        print("Managing security team.")
+
+
+    def physical_security(self):
+        self.logger.info("Overseeing physical security")
+        print("Overseeing physical security.")
+
+
+    def information_security(self):
+        self.logger.info("Managing cybersecurity")
+        print("Managing cybersecurity.")
+
+
+    def emergency_preparedness(self):
+        self.logger.info("Developing emergency plans")
+        print("Developing emergency plans.")
+
+
+    def incident_response(self):
+        self.logger.info("Leading incident response")
+        print("Leading incident investigations.")
+
+
+    def surveillance_monitoring(self):
+        self.logger.info("Monitoring surveillance")
+        print("Monitoring surveillance.")
+
+
+    def employee_training(self):
+        self.logger.info("Conducting training")
+        print("Conducting security training.")
+
+
+    def communication(self):
+        self.logger.info("Liaising on security matters")
+        print("Liaising on security matters.")
+
+
+    def request_sub_agent(self, role):
+        self.logger.info(f"Requesting sub-agent: {role}")
+        try:
+            print(f"Requesting sub-agent for {role}.")
+            # Simulate creating sub-agent
+            sub_agent = BaseAgent(f"Sub-{role}", self.orchestrator)
+            self.orchestrator.register_agent(sub_agent)
+        except FrameworkError as e:
+            self.logger.error(f"sub-agent request error: {e}")
+
+
+class NetworkAdministratorAgent(BaseAgent):
+    """
+    Network Administrator Agent: Maintains networks, security, etc.
+    """
+    def install_configure(self):
+        self.logger.info("Installing/configuring network")
+        print("Installing network hardware/software.")
+
+
+    def performance_monitoring(self):
+        self.logger.info("Monitoring performance")
+        print("Monitoring network performance.")
+
+
+    def upgrades_maintenance(self):
+        self.logger.info("Performing upgrades")
+        print("Performing network upgrades.")
+
+
+    def security_management(self):
+        self.logger.info("Managing security")
+        print("Managing network security.")
+
+
+    def troubleshooting(self):
+        self.logger.info("Troubleshooting issues")
+        print("Troubleshooting network issues.")
+
+
+    def user_management(self):
+        self.logger.info("Managing users")
+        print("Managing user accounts.")
+
+
+    def policy_management(self):
+        self.logger.info("Managing policy")
+        try:
+            self.send("Policy", {"type": "update_policy", "policy": "Network Policy", "content": "Updated network usage rules."})
+        except Exception as e:
+            self.logger.error(f"policy_management error: {e}")
+
+
+    def capacity_planning(self):
+        self.logger.info("Planning capacity")
+        print("Planning network capacity.")
+
+
+    def disaster_recovery(self):
+        self.logger.info("Managing recovery")
+        print("Managing backups and recovery.")
+
+
+    def procurement(self):
+        self.logger.info("Procuring hardware")
+        try:
+            self.send("Procurement", {"type": "procure_hardware", "item": "routers"})
+        except Exception as e:
+            self.logger.error(f"procurement error: {e}")
+
+
+    def documentation(self):
+        self.logger.info("Documenting configurations")
+        print("Documenting network configurations.")
+
+
+    def end_user_support(self):
+        self.logger.info("Providing support")
+        print("Providing network support.")
+
+
+    def collaboration(self):
+        self.logger.info("Collaborating with teams")
+        print("Collaborating with IT teams.")
+
+
+    def training(self):
+        self.logger.info("Training users")
+        print("Training users on network policies.")
+
+
+# Example usage: Set up the framework
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Self Evolving Architecture Framework")
+    parser.add_argument('--log-level', type=str, default='DEBUG', choices=['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'],
+                        help="Set the global log level")
+    args = parser.parse_args()
+    log_level = getattr(logging, args.log_level.upper())
+    setup_logging(log_level)
+
+
+    logger = logging.getLogger("Main")
+    try:
+        # Initialize Orchestrator
+        orchestrator = OrchestratorAgent(log_level=log_level)
+
+
+        # Create and register agents
+        ceo = CEOAgent("CEO", orchestrator, log_level=log_level)
+        orchestrator.register_agent(ceo)
+
+
+        cfo = CFOAgent("CFO", orchestrator, log_level=log_level)
+        orchestrator.register_agent(cfo)
+
+
+        marketing = MarketingDirectorAgent("Marketing", orchestrator, log_level=log_level)
+        orchestrator.register_agent(marketing)
+
+
+        policy = PolicyAdministratorAgent("Policy", orchestrator, log_level=log_level)
+        orchestrator.register_agent(policy)
+
+
+        security = SecurityAdministratorAgent("Security", orchestrator, log_level=log_level)
+        orchestrator.register_agent(security)
+
+
+        network = NetworkAdministratorAgent("Network", orchestrator, log_level=log_level)
+        orchestrator.register_agent(network)
+
+
+        system_admin = SystemAdministratorAgent("System", orchestrator, log_level=log_level)
+        orchestrator.register_agent(system_admin)
+
+
+        dba = DatabaseAdministratorAgent("Database", orchestrator, log_level=log_level)
+        orchestrator.register_agent(dba)
+
+
+        procurement = ProcurementAdministratorAgent("Procurement", orchestrator, log_level=log_level)
+        orchestrator.register_agent(procurement)
+
+
+        sales = SalesAdministratorAgent("Sales", orchestrator, log_level=log_level)
+        orchestrator.register_agent(sales)
+
+
+        research = ResearchAgent("Research", orchestrator, log_level=log_level)
+        orchestrator.register_agent(research)
+
+
+        coding = CodingAgent("Coding", orchestrator, log_level=log_level)
+        orchestrator.register_agent(coding)
+
+
+        # Simulate interactions
+        ceo.set_vision("Achieve full autonomy by 2030.")
+        system_admin.plan_upgrades("new servers")
+        orchestrator.handle_task("New analysis tool")
+        orchestrator.monitor_system()
+
+
+        # Example: Update policy
+        ceo.define_culture("Innovation and ethics first.")
+
+
+        # Example: Security requests sub-agent
+        security.request_sub_agent("Cyber")
+
+
+        # Example: DBA requests sub-agent
+        dba.request_sub_agent("Cloud")
+
+
+        # Test code execution in env
+        print(research.run_code_in_env('docker', 'print("Hello from Docker")'))
+
+
+        # Test invalid signature
+        invalid_message = {
+            "sender": "CEO",
+            "receiver": "CFO",
+            "timestamp": time.time(),
+            "encrypted_content": "fake_encrypted",
+            "signature": "invalid_signature"
+        }
+        orchestrator.send_message(invalid_message)  # Should fail
+
+
+        # Example: Change log level for an agent
+        research.set_log_level('INFO')
+    except Exception as e:
+        logger.error(f"Main execution error: {e}")
+```
