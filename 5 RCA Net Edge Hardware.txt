@@ -1,0 +1,18 @@
+5. RCA.Net.Edge Hardware Bundle (Full Specification)
+Below is the canonical RCA OS bundle you requested — the complete set of artifacts that define the hardware layer.
+
+RCA.Net.Edge.Spec.v1 — Module specification
+
+RCA.Net.Policy.Access.v1 — VLAN, ACL, segmentation rules
+
+RCA.Net.Automation.Edge.v1 — Auto‑provisioning scripts
+
+RCA.Net.Observability.Edge.v1 — Dashboards + exporters
+
+RCA.Net.Syslog.Pipeline.v1 — Syslog → Loki ingestion
+
+RCA.Net.Security.v1 — Zero‑trust enforcement
+
+RCA.Net.Lifecycle.v1 — Versioning, invariants, conformance tests
+
+RCA.Net.Core‑Edge Integration Diagram
