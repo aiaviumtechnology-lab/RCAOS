@@ -1,0 +1,157 @@
+﻿# Implementation of LoRA (Low-Rank Adaptation) from scratch in PyTorch.
+# Based on the original LoRA paper: "LoRA: Low-Rank Adaptation of Large Language Models" (Hu et al., 2021).
+# This provides a basic LoRALinear wrapper that can replace nn.Linear layers.
+# Key details:
+# - Decomposes weight update as ΔW = B @ A, with B (out_features, rank), A (rank, in_features).
+# - Initialization: A ~ N(0, 1/rank) (variance 1/rank), B = 0.
+# - Forward: original + (alpha / rank) * (x @ A.T @ B.T).
+# - Only LoRA params are trainable; base linear is frozen.
+# To use: Replace target nn.Linear layers in a model with LoRALinear.
+# Example injection function provided to apply LoRA to a model (e.g., GPT-2).
+
+
+import torch
+import torch.nn as nn
+import math
+
+
+class LoRALinear(nn.Module):
+    """
+    LoRA-adapted Linear layer.
+    Wraps an existing nn.Linear, adds low-rank update.
+    """
+    def __init__(self, linear: nn.Linear, rank: int = 4, alpha: float = 4.0):
+        super().__init__()
+        self.linear = linear
+        self.in_features = linear.in_features
+        self.out_features = linear.out_features
+        self.rank = rank
+        self.alpha = alpha  # Scaling factor; often set to rank for simplicity
+        
+        # Initialize A with Gaussian (mean 0, std 1/sqrt(rank) => variance 1/rank)
+        self.lora_a = nn.Parameter(
+            torch.randn(self.rank, self.in_features) * (1.0 / math.sqrt(self.rank))
+        )
+        # Initialize B to zeros
+        self.lora_b = nn.Parameter(torch.zeros(self.out_features, self.rank))
+        
+        # Freeze the original linear layer's parameters
+        for param in self.linear.parameters():
+            param.requires_grad = False
+
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        # Original forward pass
+        original_output = self.linear(x)
+        # LoRA delta: (alpha / rank) * (x @ A.T @ B.T)
+        # Associative for efficiency: (x @ A.T) @ B.T
+        lora_delta = (self.alpha / self.rank) * torch.matmul(
+            torch.matmul(x, self.lora_a.T), self.lora_b.T
+        )
+        return original_output + lora_delta
+
+
+def inject_lora_to_model(model: nn.Module, rank: int = 4, alpha: float = 4.0, target_modules: list[str] = None) -> nn.Module:
+    """
+    Inject LoRA into specific modules of the model (e.g., attention layers).
+    Replaces nn.Linear with LoRALinear in-place.
+    :param model: The pre-trained model (e.g., GPT2LMHeadModel).
+    :param rank: LoRA rank r.
+    :param alpha: Scaling factor alpha.
+    :param target_modules: List of module name patterns to target (e.g., ['c_attn', 'c_proj'] for GPT-2 attention).
+                           If None, applies to all nn.Linear.
+    :return: The model with LoRA injected.
+    """
+    for name, module in model.named_modules():
+        if isinstance(module, nn.Linear):
+            if target_modules is not None and not any(t in name for t in target_modules):
+                continue
+            # Create LoRALinear wrapper
+            lora_linear = LoRALinear(module, rank=rank, alpha=alpha)
+            # Replace the original module in the parent
+            parent_name, child_name = name.rsplit('.', 1) if '.' in name else ('', name)
+            parent = model.get_submodule(parent_name) if parent_name else model
+            setattr(parent, child_name, lora_linear)
+    return model
+
+
+# Example usage: Fine-tuning pipeline with LoRA (adapted from previous full fine-tuning code)
+# This demonstrates integration; assumes the NetworkConfigDataset from previous code.
+
+
+from transformers import AutoTokenizer, AutoModelForCausalLM, AdamW
+from torch.utils.data import Dataset, DataLoader
+
+
+# ... (Include NetworkConfigDataset class from previous response here)
+
+
+def lora_fine_tuning_pipeline(base_model_name="openai-community/gpt2", output_dir="lora_fine_tuned_slm", 
+                              epochs=3, batch_size=2, learning_rate=5e-5, lora_rank=4, lora_alpha=4,
+                              target_modules=['c_attn', 'c_proj']):  # Target attention layers in GPT-2
+    # Stage 1 & 2: Dataset (same as before, using synthetic data)
+    synthetic_data = [
+        # ... (Include the synthetic_data list from previous response here)
+    ]
+    tokenizer = AutoTokenizer.from_pretrained(base_model_name)
+    if tokenizer.pad_token is None:
+        tokenizer.pad_token = tokenizer.eos_token
+    dataset = NetworkConfigDataset(synthetic_data, tokenizer)
+    dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True, collate_fn=lambda x: {
+        'input_ids': torch.nn.utils.rnn.pad_sequence([item['input_ids'] for item in x], batch_first=True, padding_value=tokenizer.pad_token_id),
+        'labels': torch.nn.utils.rnn.pad_sequence([item['labels'] for item in x], batch_first=True, padding_value=tokenizer.pad_token_id),
+        'attention_mask': torch.nn.utils.rnn.pad_sequence([torch.ones_like(item['input_ids']) for item in x], batch_first=True, padding_value=0)
+    })
+    print("Stages 1-2: Dataset prepared.")
+
+
+    # Stage 3: Model Adaptation with LoRA
+    model = AutoModelForCausalLM.from_pretrained(base_model_name)
+    model = inject_lora_to_model(model, rank=lora_rank, alpha=lora_alpha, target_modules=target_modules)
+    model.train()
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    model.to(device)
+    print(f"Stage 3: Model with LoRA (rank={lora_rank}, alpha={lora_alpha}) loaded on {device}.")
+
+
+    # Stage 4: Training (only LoRA params are updated)
+    optimizer = AdamW(filter(lambda p: p.requires_grad, model.parameters()), lr=learning_rate)
+    for epoch in range(epochs):
+        total_loss = 0
+        for batch in dataloader:
+            input_ids = batch['input_ids'].to(device)
+            labels = batch['labels'].to(device)
+            attention_mask = batch['attention_mask'].to(device)
+            outputs = model(input_ids=input_ids, attention_mask=attention_mask, labels=labels)
+            loss = outputs.loss
+            loss.backward()
+            optimizer.step()
+            optimizer.zero_grad()
+            total_loss += loss.item()
+        avg_loss = total_loss / len(dataloader)
+        print(f"Epoch {epoch+1}/{epochs}, Average Loss: {avg_loss:.4f}")
+    print("Stage 4: LoRA Training completed.")
+
+
+    # Stages 5-6: Evaluation and Deployment (similar to before)
+    model.eval()
+    eval_loss = 0
+    with torch.no_grad():
+        for batch in dataloader:
+            input_ids = batch['input_ids'].to(device)
+            labels = batch['labels'].to(device)
+            attention_mask = batch['attention_mask'].to(device)
+            outputs = model(input_ids=input_ids, attention_mask=attention_mask, labels=labels)
+            eval_loss += outputs.loss.item()
+    avg_eval_loss = eval_loss / len(dataloader)
+    perplexity = torch.exp(torch.tensor(avg_eval_loss))
+    print(f"Stage 5: Evaluation - Perplexity: {perplexity:.4f}")
+    
+    model.save_pretrained(output_dir)
+    tokenizer.save_pretrained(output_dir)
+    print("Stage 6: LoRA-adapted model deployed to", output_dir)
+
+
+# Example call (commented out for standalone use)
+# if __name__ == "__main__":
+#     lora_fine_tuning_pipeline()
