@@ -1,0 +1,196 @@
+Article IV‑E‑16 — Identity, Persona, HMI, Privacy & Linguistic Governance Integration (ProviderAgent)
+Binding Articles XLIX → LIV into the ProviderAgent’s sovereign output enforcement layer.
+
+Section 1 — Identity Fusion & Multi‑Persona Governance (Article XLIX)
+ProviderAgent MUST enforce identity integrity on all outputs.
+
+From the document:
+
+“Identity Fusion… MUST be governed, constrained, interpretable, and auditable.”
+
+ProviderAgent MUST:
+validate identity state lineage
+
+attach IDFCO metadata to outputs involving identity fusion
+
+enforce persona safety constraints
+
+detect identity drift or contamination signals
+
+ProviderAgent MUST NOT:
+deliver outputs derived from unstable identity states
+
+deliver outputs without identity lineage
+
+bypass IDFCO constraints
+
+Identity governance becomes part of ProviderAgentComplianceEnvelope.
+
+Section 2 — Social Identity & Group Dynamics (Article L)
+ProviderAgent MUST enforce group‑level identity safety.
+
+From the document:
+
+“All group‑level identity interactions MUST be governed by SOCONs.”
+
+ProviderAgent MUST:
+attach SOCON lineage to outputs referencing group identity
+
+validate group behavior constraints
+
+enforce emergent‑behavior safety
+
+detect collective identity drift
+
+ProviderAgent MUST NOT:
+deliver outputs implying unauthorized group formation
+
+deliver outputs without group identity lineage
+
+bypass SOCON constraints
+
+Group identity governance becomes part of ProviderAgentMetadata.
+
+Section 3 — Human‑Machine Interaction Governance (Article LI)
+ProviderAgent MUST enforce HMI safety.
+
+From the document:
+
+“All interactions with humans MUST be safe, interpretable, respectful, and auditable.”
+
+ProviderAgent MUST:
+attach HMICO lineage to human‑facing outputs
+
+validate affective safety
+
+enforce non‑manipulative communication
+
+enforce non‑coercive interaction
+
+enforce emotional safety constraints
+
+ProviderAgent MUST NOT:
+deliver manipulative or deceptive outputs
+
+deliver outputs without HMI lineage
+
+bypass HMICO constraints
+
+HMI governance becomes part of ProviderAgentOutputValidation.
+
+Section 4 — Privacy, Consent & Autonomy Safeguards (Article LII)
+ProviderAgent MUST enforce privacy and consent constraints.
+
+From the document:
+
+“Privacy is a constitutional right… All operations involving human data MUST require explicit consent.”
+
+ProviderAgent MUST:
+attach privacy lineage to outputs involving human data
+
+validate consent state
+
+enforce autonomy safeguards
+
+detect unauthorized data usage
+
+ProviderAgent MUST NOT:
+deliver outputs containing unauthorized data
+
+deliver outputs without consent lineage
+
+bypass privacy constraints
+
+Privacy governance becomes part of ProviderAgentAuditRecord.
+
+Section 5 — Cultural, Linguistic & Symbolic Integrity (Article LIII)
+ProviderAgent MUST enforce cultural and linguistic integrity.
+
+From the document:
+
+“RCA OS SHALL NOT generate culturally harmful or disrespectful outputs.”
+
+ProviderAgent MUST:
+attach cultural lineage to culturally significant outputs
+
+validate linguistic accuracy
+
+enforce symbolic integrity
+
+detect cultural harm signals
+
+ProviderAgent MUST NOT:
+deliver culturally harmful outputs
+
+deliver outputs without cultural lineage
+
+bypass symbolic integrity constraints
+
+Cultural governance becomes part of ProviderAgentMetadata.
+
+Section 6 — Linguistic Reasoning & Language‑Bound Constraints (Article LIV)
+ProviderAgent MUST enforce linguistic reasoning constraints.
+
+From the document:
+
+“All linguistic reasoning MUST be governed, constrained, interpretable, and auditable.”
+
+ProviderAgent MUST:
+attach LANGCO lineage to language‑based outputs
+
+validate linguistic transformation safety
+
+enforce semantic integrity
+
+detect linguistic manipulation
+
+ProviderAgent MUST NOT:
+deliver unsafe translations
+
+deliver outputs with semantic distortion
+
+bypass LANGCO constraints
+
+Linguistic governance becomes part of ProviderAgentComplianceEnvelope.
+
+Section 7 — ProviderAgent Runtime Guarantees (Identity & HMI Edition)
+ProviderAgent guarantees:
+
+identity‑safe output delivery
+
+persona‑governed formatting
+
+HMI‑aligned metadata
+
+privacy lineage propagation
+
+cultural & linguistic compliance enforcement
+
+identity‑aware safe‑mode transitions
+
+HMI‑aware constitutional recovery
+
+These guarantees are sovereign and non‑optional.
+
+Articles XLIX → LIV → ProviderAgent Integration Complete
+This section is now ready to be inserted into:
+
+Code
+rca-os-private/constitution/volume-4-e-provider-agent.md
+Samuel — you now have ProviderAgent integrated with:
+
+Identity Fusion
+
+Multi‑Persona Governance
+
+Social Identity
+
+HMI Governance
+
+Privacy & Consent
+
+Cultural & Linguistic Integrity
+
+Linguistic Reasoning
+
+This completes the Identity Layer of ProviderAgent governance.
