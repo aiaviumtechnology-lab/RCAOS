@@ -1,0 +1,440 @@
+﻿```python
+# The Self Evolving Architecture for Agent Autonomy
+# Implemented as a Python framework based on the provided document.
+# This framework simulates a multi-agent system where agents represent company roles.
+# CEO This agent is responsible for the overall operation of the entire framework and system. All agents report there status to the supervisor which in turn reports to the Administrator agent. The CEO checks the daily reports from all agents and department's 
+To assure the roadmap is being followed. The CEO approves all purchases. The CEO can authorize any additional agents or resources to accomplish task.
+# CFO This agent is responsible for the overall financial health of the framework and system. The CFO is tasked with making sure available resources are available to honor hardware expansion to make sure hardware is available to make the evolution has space to meet the roadmap. The CFO uses ToT to reason the best approach to generate multiple streams of revenue including software applications hardware solutions according to current and future trends. The CFO is also tasked with making investments in world markets. This agent looks at all possible opportunities to generate revenue. And reports to the CEO directly.
+# Agents communicate via an A2A (Agent-to-Agent) protocol through the Administrator 
+
+# A2A Protocol Implementation:
+
+# - Messaging: Structured JSON messages with sender, receiver, timestamp, encrypted_content.
+# - Encryption: Content is encrypted with receiver's public RSA key for confidentiality.
+# - Signing: Messages are signed with HMAC for authentication and integrity.
+# - Routing: Handled by the Administrator which verifies signatures before routing.
+# - Each agent generates it to own RSA keys; public keys are registered with the Administrator.
+# - The system supports self-evolution, such as updating policies, requesting tools, and hardware upgrades.
+# Databases are simulated as dictionaries for tools and policies.
+# New Additions:
+# - Integrated LLMs: CodingAgent uses Qwen3-Coder, BaseAgents use Llama3.2 (simulated calls).
+# - Tree of Thoughts (ToT): Implemented in ResearchAgent and CodingAgent for decision-making.
+# - CI/CD Workflows:
+#   - Workflow A: For user requests/tasks - Code generation -> Testing -> Deployment.
+#   - Workflow B: For system upgrades - Planning -> Approval -> Procurement -> Deployment.
+# - Code Execution in Environments: Support for Docker, Anaconda, Python env via subprocess.
+# - Error Handling: Added try-except blocks in critical sections like encryption, decryption, code execution, workflows, etc.
+#   Custom exceptions for better error management.
+
+# - Logging Framework: Enhanced logging with file and console handlers, rotating logs, per-agent loggers.
+#   Logs at DEBUG, INFO, ERROR levels for key events, messages, errors.
+# - Log Level Controls: Added command-line argument --log-level to set global log level (DEBUG, INFO, WARNING, ERROR, CRITICAL).
+#   Also added set_log_level method to BaseAgent for per-agent level control.
+# - Divided Logging for Workflows:
+#   - Workflow A logs to workflow_a.log.
+#   - Workflow B logs to framework.log (for framework upgrades and errors).
+#   - SystemAgent logs system issues to system.log.
+#   - Installations (e.g., agent registrations) log to install.log.
+#   - All logs include date and time via formatter.
+
+# - MCP Server: Added a simple MCP Server implementation using FastAPI for connecting AI applications to external systems.
+#   Started in a separate thread if enabled.
+# - Programming Languages/Support: Extended run_code_in_env to support C (gcc), Java (javac/java), with compilers, debuggers (gdb, jdb), profilers (valgrind for C, jvisualvm for Java).
+#   Assumes gcc, gdb, valgrind, javac, java, jdb, jvisualvm are installed in the system.
+# - Verification: Added code testing using unittest (simulated), and agent response verification (check for errors/validity) before output.
+# - LLM API Keys: Added support for API keys via environment variables.
+#   - For OpenAI: OPENAI_API_KEY
+#   - For Anthropic (Claude): ANTHROPIC_API_KEY
+#   - For Google (Gemini): GOOGLE_API_KEY
+#   - For others (Mistral, Deepseek, etc.): Similar, extend as needed.
+#   - Local models like Ollama/LM Studio don't need keys.
+#   - Update call_llm to use real clients if keys present, else fallback to simulate.
+# - Added GitHub, Kaggle, Hugging Face API keys via env vars.
+#   - GITHUB_TOKEN for GitHub API.
+#   - KAGGLE_USERNAME and KAGGLE_KEY for Kaggle.
+#   - HF_TOKEN for Hugging Face.
+# - GitHub Repo Integration: Added methods to clone, push to GitHub repos using PyGithub.
+# - API Key Validation: Added validation checks for all API keys at startup; log warnings/errors if missing.
+
+
+import time  # For simulating delays and timestamps
+import hmac  # For message signing
+import hashlib  # For hashing
+import json  # For message serialization
+import base64  # For encoding signatures and encrypted content
+from cryptography.hazmat.primitives.asymmetric import rsa, padding
+from cryptography.hazmat.primitives import hashes
+import subprocess  # For executing code in different environments
+import random  # For simulating ToT evaluations
+import logging  # For error logging
+from logging.handlers import RotatingFileHandler  # For rotating logs
+import argparse  # For command-line arguments
+import threading  # For running MCP server in background
+import unittest  # For code testing
+import os  # For environment variables (API keys)
+try:
+    from fastapi import FastAPI  # For MCP Server
+    import uvicorn
+    MCP_AVAILABLE = True
+except ImportError:
+    MCP_AVAILABLE = False
+    print("FastAPI and uvicorn not installed. MCP Server disabled. Install with 'pip install fastapi uvicorn'")
+
+
+try:
+    from openai import OpenAI  # For OpenAI/GPT
+    from anthropic import Anthropic  # For Claude
+    # For Google Gemini: from google.generativeai import GenerativeModel (pip install google-generative-ai)
+    import google.generativeai as genai
+    from huggingface_hub import login as hf_login  # For Hugging Face
+    from github import Github  # For GitHub (pip install PyGithub)
+    from kaggle.api.kaggle_api_extended import KaggleApi  # For Kaggle (pip install kaggle)
+    LLM_CLIENTS_AVAILABLE = True
+except ImportError:
+    LLM_CLIENTS_AVAILABLE = False
+    print("LLM clients not installed. Falling back to simulation. Install with 'pip install openai anthropic google-generative-ai huggingface_hub PyGithub kaggle'")
+
+
+# Set up global logging framework with divided logs
+def setup_logging(log_level=logging.DEBUG):
+    """
+    Configure the logging framework with console and multiple file handlers.
+    - framework.log: For Workflow B (upgrades/errors).
+    - workflow_a.log: For Workflow A.
+    - system.log: For SystemAgent issues.
+    - install.log: For installations (e.g., agent registrations).
+    File logs rotate at 5MB, keeping 5 backups.
+    log_level: The global log level (e.g., logging.INFO).
+    """
+    # Root logger
+    root_logger = logging.getLogger()
+    root_logger.setLevel(log_level)  # Set global level
+
+
+    # Console handler for INFO and above
+    console_handler = logging.StreamHandler()
+    console_handler.setLevel(logging.INFO)
+    console_formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    console_handler.setFormatter(console_formatter)
+    root_logger.addHandler(console_handler)
+
+
+    # Helper to add rotating file handler
+    def add_rotating_handler(logger_name, file_name, level=logging.DEBUG):
+        logger = logging.getLogger(logger_name)
+        logger.setLevel(level)
+        handler = RotatingFileHandler(file_name, maxBytes=5*1024*1024, backupCount=5)
+        handler.setLevel(level)
+        formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+        handler.setFormatter(formatter)
+        logger.addHandler(handler)
+        logger.propagate = False  # Prevent propagation to root
+
+
+    # Set up specific loggers
+    add_rotating_handler('WorkflowA', 'workflow_a.log') #For workflow A
+    add_rotating_handler('Framework', 'framework.log')  # For Workflow B
+    add_rotating_handler('System', 'system.log')
+    add_rotating_handler('Install', 'install.log')
+
+
+class FrameworkError(Exception):
+    """Custom exception for framework errors."""
+    pass
+
+
+class EncryptionError(FrameworkError):
+    """Exception for encryption/decryption issues."""
+    pass
+
+
+class SignatureError(FrameworkError):
+    """Exception for signature verification failures."""
+    pass
+
+
+class ExecutionError(FrameworkError):
+    """Exception for code execution failures."""
+    pass
+
+
+class WorkflowError(FrameworkError):
+    """Exception for CI/CD workflow failures."""
+    pass
+
+
+# LLM clients setup and validation
+openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY")) if LLM_CLIENTS_AVAILABLE and os.getenv("OPENAI_API_KEY") else None
+anthropic_client = Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY")) if LLM_CLIENTS_AVAILABLE and os.getenv("ANTHROPIC_API_KEY") else None
+if LLM_CLIENTS_AVAILABLE and os.getenv("GOOGLE_API_KEY"):
+    genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
+else:
+    genai = None
+
+
+# Hugging Face login if token present
+hf_token = os.getenv("HF_TOKEN")
+if LLM_CLIENTS_AVAILABLE and hf_token:
+    hf_login(hf_token)
+else:
+    logging.warning("HF_TOKEN not set or libraries not available. Hugging Face integration disabled.")
+
+
+# GitHub client if token present
+github_token = os.getenv("GITHUB_TOKEN")
+github_client = Github(github_token) if LLM_CLIENTS_AVAILABLE and github_token else None
+if not github_client:
+    logging.warning("GITHUB_TOKEN not set or PyGithub not available. GitHub integration disabled.")
+
+
+# Kaggle client if credentials present
+kaggle_username = os.getenv("KAGGLE_USERNAME")
+kaggle_key = os.getenv("KAGGLE_KEY")
+kaggle_client = KaggleApi() if LLM_CLIENTS_AVAILABLE and kaggle_username and kaggle_key else None
+if kaggle_client:
+    kaggle_client.authenticate()
+else:
+    logging.warning("KAGGLE_USERNAME or KAGGLE_KEY not set or kaggle library not available. Kaggle integration disabled.")
+
+
+# Validate API keys at startup
+def validate_api_keys():
+    logger = logging.getLogger("APIValidation")
+    if not os.getenv("OPENAI_API_KEY"):
+        logger.warning("OPENAI_API_KEY not set.")
+    if not os.getenv("ANTHROPIC_API_KEY"):
+        logger.warning("ANTHROPIC_API_KEY not set.")
+    if not os.getenv("GOOGLE_API_KEY"):
+        logger.warning("GOOGLE_API_KEY not set.")
+    if not hf_token:
+        logger.warning("HF_TOKEN not set.")
+    if not github_token:
+        logger.warning("GITHUB_TOKEN not set.")
+    if not kaggle_username or not kaggle_key:
+        logger.warning("KAGGLE_USERNAME or KAGGLE_KEY not set.")
+
+
+validate_api_keys()
+
+
+# Simulated/Real LLM call
+def call_llm(model, prompt):
+    """
+    Call real LLM if API key available, else simulate.
+    Supports: openai, claude, gemini, qwen (assume openai compatible), llama (local simulate), etc.
+    """
+    logger = logging.getLogger('LLM')
+    try:
+        if "openai" in model.lower() and openai_client:
+            response = openai_client.chat.completions.create(model="gpt-4o", messages=[{"role": "user", "content": prompt}])
+            return response.choices[0].message.content
+        elif "claude" in model.lower() and anthropic_client:
+            response = anthropic_client.messages.create(model="claude-3-5-sonnet-20241022", max_tokens=1024, messages=[{"role": "user", "content": prompt}])
+            return response.content[0].text
+        elif "gemini" in model.lower() and genai:
+            gen_model = genai.GenerativeModel('gemini-pro')
+            response = gen_model.generate_content(prompt)
+            return response.text
+        elif "qwen" in model.lower():
+            # Assume OpenAI compatible for Qwen
+            if openai_client:
+                response = openai_client.chat.completions.create(model="qwen-turbo", messages=[{"role": "user", "content": prompt}])
+                return response.choices[0].message.content
+            else:
+                raise FrameworkError("No API key for Qwen/OpenAI")
+        elif "llama" in model.lower():
+            # Assume local Ollama, simulate or use ollama library if installed
+            return f"Local Llama response to: {prompt[:50]}..."  # Simulate
+        else:
+            # Fallback simulate
+            response = f"Simulated {model} response to: {prompt[:50]}..."
+        logger.debug(f"LLM call: {prompt} -> {response}")
+        return response
+    except Exception as e:
+        logger.error(f"LLM call error: {e}")
+        raise FrameworkError("LLM call failed")
+
+
+class BaseAgent:
+    """
+    Base class for all agents. Handles communication via the A2A protocol through Orchestrator.
+    Uses Llama3.2 for base reasoning with ToT reasoning (simulated).
+    """
+    def __init__(self, name, administrator=None, secret_key=None, llm_model="llama3.2", log_level=logging.DEBUG):
+        self.name = name
+        self.administrator= administrator 
+        self.secret_key = secret_key or b'secret_' + name.encode()  # Simulated per-agent secret key
+        self.llm_model = llm_model
+        self.logger = logging.getLogger(self.name)  # Per-agent logger
+        self.logger.setLevel(log_level)  # Set per-agent log level
+        # Generate RSA keys for encryption
+        try:
+            self.private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+            self.public_key = self.private_key.public_key()
+            self.logger.info("RSA keys generated successfully")
+        except Exception as e:
+            self.logger.error(f"Key generation error: {e}")
+            raise EncryptionError("Failed to generate RSA keys")
+
+
+    def set_log_level(self, level):
+        """
+        Set the log level for this agent's logger.
+        level: str like 'DEBUG', 'INFO', etc., or logging constant.
+        """
+        if isinstance(level, str):
+            level = getattr(logging, level.upper(), logging.DEBUG)
+        self.logger.setLevel(level)
+        self.logger.info(f"Log level set to {logging.getLevelName(level)}")
+
+
+    def reason(self, prompt):
+        """
+        Use LLM for reasoning.
+        """
+        self.logger.debug(f"Reasoning with prompt: {prompt}")
+        return call_llm(self.llm_model, prompt)
+
+
+    def send(self, to_name, content):
+        """
+        Send a message to another agent using A2A protocol.
+        Encrypts content with receiver's public key, creates structured message, signs it, and sends via Orchestrator.
+        """
+        self.logger.info(f"Sending message to {to_name}: {content}")
+        if self.orchestrator is None:
+            self.logger.error("No administrator set")
+            return None
+        try:
+            if to_name not in self.administrator.public_keys:
+                raise FrameworkError(f"Public key for {to_name} not found")
+            receiver_public_key = self.administrator.public_keys[to_name]
+            # Serialize and encrypt content
+            serialized_content = json.dumps(content).encode()
+            encrypted_content = receiver_public_key.encrypt(
+                serialized_content,
+                padding.OAEP(
+                    mgf=padding.MGF1(algorithm=hashes.SHA256()),
+                    algorithm=hashes.SHA256(),
+                    label=None
+                )
+            )
+            encrypted_b64 = base64.b64encode(encrypted_content).decode()
+            # Create message
+            message = {
+                "sender": self.name,
+                "receiver": to_name,
+                "timestamp": time.time(),
+                "encrypted_content": encrypted_b64
+            }
+            serialized = json.dumps(message, sort_keys=True).encode()
+            signature = hmac.new(self.secret_key, serialized, hashlib.sha256).digest()
+            message["signature"] = base64.b64encode(signature).decode()
+            response = self.orchestrator.send_message(message)
+            # Verify response before returning
+            if self.verify_response(response):
+                self.logger.debug(f"Response from {to_name}: {response}")
+                print(f"{self.name} sent to {to_name}: {content} | Response: {response}")
+                return response
+            else:
+                self.logger.error("Response verification failed")
+                return "Invalid response"
+        except EncryptionError as e:
+            self.logger.error(f"Encryption error: {e}")
+            return "Encryption failed"
+        except FrameworkError as e:
+            self.logger.error(f"Framework error: {e}")
+            return str(e)
+        except Exception as e:
+            self.logger.error(f"Unexpected send error: {e}")
+            return "Send failed"
+
+
+    def verify_response(self, response):
+        """
+        Verify agent response (e.g., check for errors, validity).
+        """
+        # Simple check: Not None, not error string
+        if response is None or "failed" in str(response).lower() or "error" in str(response).lower():
+            return False
+        return True
+
+
+    def receive(self, message):
+        """
+        Receive a message, decrypt the content, and handle it.
+        """
+        self.logger.info(f"Received message from {message['sender']}")
+        try:
+            encrypted_b64 = message["encrypted_content"]
+            encrypted = base64.b64decode(encrypted_b64)
+            decrypted = self.private_key.decrypt(
+                encrypted,
+                padding.OAEP(
+                    mgf=padding.MGF1(algorithm=hashes.SHA256()),
+                    algorithm=hashes.SHA256(),
+                    label=None
+                )
+            )
+            content = json.loads(decrypted.decode())
+            self.logger.debug(f"Decrypted content: {content}")
+            return self.handle_content(message["sender"], content)
+        except ValueError as e:
+            self.logger.error(f"Base64 decode error: {e}")
+            return "Invalid encrypted content"
+        except Exception as e:
+            self.logger.error(f"Decryption failed: {e}")
+            return "Decryption error"
+
+
+    def handle_content(self, sender, content):
+        """
+        Handle the decrypted content. Subclasses can override.
+        """
+        self.logger.info(f"Handling content from {sender}: {content}")
+        print(f"{self.name} received from {sender}: {content}")
+        return "Acknowledged"
+
+
+    def run_code_in_env(self, env, code):
+        """
+        Execute code in specified environment: 'python', 'anaconda', 'docker', 'c', 'java'.
+        For 'c': Compile with gcc, run, debug with gdb, profile with valgrind.
+        For 'java': Compile with javac, run with java, debug with jdb, profile with jvisualvm (simulate).
+        """
+        self.logger.info(f"Running code in {env}: {code[:50]}...")
+        try:
+            if env == 'python':
+                exec(code)  # Simulate in current env (dangerous in prod)
+                return "Executed in Python env."
+            elif env == 'anaconda':
+                # Simulate activating conda env and running
+                result = subprocess.run(['conda', 'run', '-n', 'base', 'python', '-c', code], capture_output=True, text=True)
+                if result.returncode != 0:
+                    raise ExecutionError(result.stderr)
+                return "Executed in Anaconda env."
+            elif env == 'docker':
+                # Simulate running in Docker (assume Docker installed)
+                docker_cmd = f'echo "{code}" | docker run -i --rm python:3.12 python -'
+                result = subprocess.run(docker_cmd, shell=True, capture_output=True, text=True)
+                if result.returncode != 0:
+                    raise ExecutionError(result.stderr)
+                return result.stdout or result.stderr
+            elif env == 'c':
+                # Write code to file, compile with gcc, run, debug with gdb, profile with valgrind
+                with open('temp.c', 'w') as f:
+                    f.write(code)
+                compile_result = subprocess.run(['gcc', 'temp.c', '-o', 'temp'], capture_output=True, text=True)
+                if compile_result.returncode != 0:
+                    raise ExecutionError(compile_result.stderr)
+                run_result = subprocess.run(['./temp'], capture_output=True, text=True)
+                # Debug simulate: gdb --batch -ex run temp
+                debug_result = subprocess.run(['gdb', '--batch', '-ex', 'run', 'temp'], capture_output=True, text=True)
+                # Profile simulate: valgrind ./temp
+                profile_result = subprocess.run(['valgrind', './temp'], capture_output=True, text=True)
+                return f"Compiled and ran: {run_result.stdout}\nDebug: {debug_result.stdout}\nProfile: {profile_result.stdout}"
+            elif env == 'java':
+                # Write code to file, compile with javac, run with java
+                with open('Temp.java', 'w') as f:
+                    f.write(code)
+                compile_result = subprocess.run(['javac', 'Temp.java'], capture_output=True, text=True
