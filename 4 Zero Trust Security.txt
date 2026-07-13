@@ -1,0 +1,10 @@
+4. Zero‑Trust & Security Hardware Requirements
+Identity‑Bound ACL Engines
+
+Inline Crypto Accelerators
+
+Micro‑Segmentation Gateways
+
+Egress Control Appliances
+
+These enforce the RCA OS constitutional guarantees around sovereignty, lineage, and adversarial resistance.
